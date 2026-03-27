@@ -23,9 +23,9 @@ export default defineConfig({
 
 
       manifest: {
-        name: 'Mx Materiais Elétricos',
+        name: 'Demonstrativo',
         short_name: 'M X',
-        description: 'Painel do Cliente - Mx Materiais Elétricos',
+        description: 'Painel do Cliente - Demonstrativo',
 
         theme_color: '#ffffff',
         icons: [

@@ -32,7 +32,7 @@ export const MOCK_API = {
   },
   getConfig: async () => {
     return {
-      nome_loja: "Minha Loja",
+      nome_loja: "Demonstrativo",
       cor_primaria: "#0ea5e9",
       cor_secundaria: "#0c4a6e",
       logo_url: "",

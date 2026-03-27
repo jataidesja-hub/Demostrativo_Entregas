@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { Product, Category, Promotion, StoreConfig, Order, OpeningHours } from '@/types';
 import { supabase } from '@/lib/supabase';
 
+const STORE_ID = import.meta.env.VITE_STORE_ID || '2';
+console.log(`[Store] Initialized for Store ID: ${STORE_ID}`);
+
 const DEFAULT_OPENING_HOURS: OpeningHours = {
   'Segunda': { open: '08:00', close: '18:00', isOpen: true },
   'Terça': { open: '08:00', close: '18:00', isOpen: true },
@@ -13,7 +16,7 @@ const DEFAULT_OPENING_HOURS: OpeningHours = {
 };
 
 const DEFAULT_CONFIG: StoreConfig = {
-  name: 'Minha Loja',
+  name: 'Demonstrativo',
   font: 'Inter',
   primaryColor: '#0284c7',
   logoUrl: '',
@@ -77,7 +80,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         // Fetch config separately since .single() can throw if no row exists
         try {
-          const confRes = await supabase.from('config').select('*').limit(1).single();
+          const confRes = await supabase.from('config').select('*').eq('id', STORE_ID).limit(1).single();
           if (confRes.data) {
             const loadedConfig = { ...DEFAULT_CONFIG, ...Object.fromEntries(Object.entries(confRes.data).filter(([_, v]) => v != null)) as Partial<StoreConfig> };
             // Ensure openingHours is not empty
@@ -91,10 +94,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         const [prodRes, catRes, promRes, ordRes] = await Promise.all([
-          supabase.from('products').select('*'),
-          supabase.from('categories').select('*'),
-          supabase.from('promotions').select('*'),
-          supabase.from('orders').select('*')
+          supabase.from('products').select('*').eq('store_id', STORE_ID),
+          supabase.from('categories').select('*').eq('store_id', STORE_ID),
+          supabase.from('promotions').select('*').eq('store_id', STORE_ID),
+          supabase.from('orders').select('*').eq('store_id', STORE_ID)
         ]);
 
         if (prodRes.data) setProductsState(prodRes.data);
@@ -114,11 +117,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'config' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'config', filter: `id=eq.${STORE_ID}` }, payload => {
         console.log('[Real-time] Config updated', payload.new);
         if (payload.new) setConfigState(prev => ({ ...prev, ...payload.new }));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `store_id=eq.${STORE_ID}` }, payload => {
         console.log('[Real-time] Products changed', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setProductsState(prev => prev.some(p => p.id === payload.new.id) ? prev : [...prev, payload.new as Product]);
@@ -126,14 +129,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (payload.eventType === 'UPDATE') setProductsState(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } as Product : p));
         if (payload.eventType === 'DELETE') setProductsState(prev => prev.filter(p => p.id !== payload.old.id));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories', filter: `store_id=eq.${STORE_ID}` }, payload => {
         console.log('[Real-time] Categories changed', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setCategoriesState(prev => prev.some(c => c.id === payload.new.id) ? prev : [...prev, payload.new as Category]);
         }
         if (payload.eventType === 'DELETE') setCategoriesState(prev => prev.filter(c => c.id !== payload.old.id));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions', filter: `store_id=eq.${STORE_ID}` }, payload => {
         console.log('[Real-time] Promotions changed', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setPromotionsState(prev => prev.some(p => p.id === payload.new.id) ? prev : [...prev, payload.new as Promotion]);
@@ -141,7 +144,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (payload.eventType === 'UPDATE') setPromotionsState(prev => prev.map(p => p.id === payload.new.id ? { ...p, ...payload.new } as Promotion : p));
         if (payload.eventType === 'DELETE') setPromotionsState(prev => prev.filter(p => p.id !== payload.old.id));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `store_id=eq.${STORE_ID}` }, payload => {
         console.log('[Real-time] Orders changed', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setOrdersState(prev => {
@@ -225,7 +228,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setConfigState(c);
     setIsSaving(true);
     try {
-      const { error } = await supabase.from('config').upsert({ id: 1, ...c });
+      const { error } = await supabase.from('config').upsert({ id: STORE_ID, ...c });
       if (error) throw error;
     } catch (err: any) {
       console.error(err);
@@ -235,7 +238,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // PRODUCTS
   const addProduct = async (p: Omit<Product, 'id'>) => {
-    const newP = { id: genId(), ...p };
+    const newP = { id: genId(), store_id: STORE_ID, ...p };
     setProductsState(prev => [...prev, newP]);
     setIsSaving(true);
     const { error } = await supabase.from('products').insert([newP]);
@@ -249,7 +252,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const previous = products.find(x => x.id === p.id);
     setProductsState(prev => prev.map(x => x.id === p.id ? p : x));
     setIsSaving(true);
-    const { error } = await supabase.from('products').upsert(p);
+    const { error } = await supabase.from('products').upsert({ ...p, store_id: STORE_ID });
     setIsSaving(false);
     if (error) {
       alert('Erro ao atualizar produto: ' + error.message);
@@ -272,7 +275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // CATEGORIES
   const addCategory = async (c: Omit<Category, 'id'>) => {
-    const newC = { id: genId(), ...c };
+    const newC = { id: genId(), store_id: STORE_ID, ...c };
     setCategoriesState(prev => [...prev, newC]);
     setIsSaving(true);
     const { error } = await supabase.from('categories').insert([newC]);
@@ -298,7 +301,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // PROMOTIONS
   const addPromotion = async (p: Omit<Promotion, 'id'>) => {
-    const newP = { id: genId(), ...p };
+    const newP = { id: genId(), store_id: STORE_ID, ...p };
     setPromotionsState(prev => [...prev, newP]);
     setIsSaving(true);
     const { error } = await supabase.from('promotions').insert([newP]);
@@ -312,7 +315,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const previous = promotions.find(x => x.id === p.id);
     setPromotionsState(prev => prev.map(x => x.id === p.id ? p : x));
     setIsSaving(true);
-    const { error } = await supabase.from('promotions').upsert(p);
+    const { error } = await supabase.from('promotions').upsert({ ...p, store_id: STORE_ID });
     setIsSaving(false);
     if (error && previous) {
       alert('Erro ao atualizar: ' + error.message);
@@ -336,6 +339,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ORDERS
   const addOrder = async (o: Omit<Order, 'id' | 'createdAt' | 'status'>) => {
     const newO: Order = { ...o, id: genId(), createdAt: new Date().toISOString(), status: 'pending' };
+    const dbOrder = { ...newO, store_id: STORE_ID };
     setOrdersState(prev => [...prev, newO]);
     setIsSaving(true);
     
@@ -355,7 +359,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.error("Erro ao dar baixa no estoque:", stockErr);
     }
 
-    const { error } = await supabase.from('orders').insert([newO]);
+    const { error } = await supabase.from('orders').insert([dbOrder]);
     setIsSaving(false);
     if (error) console.error("Erro ao salvar pedido no DB:", error.message);
   };
