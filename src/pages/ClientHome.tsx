@@ -204,7 +204,10 @@ export default function ClientHome() {
 
     if (config.whatsapp) {
       const itemsList = cart.map(c => `• ${c.quantity}x ${c.product.name}`).join('\n');
-      const msg = `🛒 *NOVO PEDIDO*\n\n👤 *Cliente:* ${custName}\n📍 *Endereço:* ${custAddress}\n\n*ITENS:*\n${itemsList}\n\n💰 *TOTAL:* ${formatCurrency(total)}\n💳 *Pagamento:* ${paymentMethod}`;
+      const mapLink = `https://www.google.com/maps/search/?api=1&query=${custLat},${custLng}`;
+      const changeMsg = paymentMethod === 'dinheiro' && changeFor ? `\n💵 *Troco para:* R$ ${changeFor}` : '';
+      
+      const msg = `🛒 *NOVO PEDIDO*\n\n👤 *Cliente:* ${custName}\n📱 *WhatsApp:* ${custWhatsapp}\n📍 *Endereço:* ${custAddress}\n🗺️ *Localização GPS:* ${mapLink}\n\n*ITENS:*\n${itemsList}\n\n💰 *Subtotal:* ${formatCurrency(subtotal)}\n🛵 *Entrega:* ${formatCurrency(deliveryFee)}\n💵 *TOTAL COMPRA:* ${formatCurrency(total)}\n\n💳 *Pagamento:* ${paymentMethod}${changeMsg}`;
       let waNumber = config.whatsapp.replace(/\D/g, '');
       if (waNumber.length <= 11) waNumber = '55' + waNumber;
       window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -395,15 +398,52 @@ export default function ClientHome() {
                 <>
                   <h2 className="text-3xl font-black italic uppercase tracking-tighter">Finalizar</h2>
                   <div className="space-y-4">
-                    <input value={custName} onChange={e => setCustName(e.target.value)} placeholder="Seu Nome" className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border" />
-                    <input value={custWhatsapp} onChange={e => setCustWhatsapp(e.target.value)} placeholder="Seu WhatsApp" className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border" />
-                    <input value={custAddress} onChange={e => setCustAddress(e.target.value)} placeholder="Seu Endereço" className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border" />
-                    <select value={paymentMethod} onChange={(e: any) => setPaymentMethod(e.target.value)} className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border">
-                      <option value="pix">PIX</option>
-                      <option value="dinheiro">Dinheiro</option>
-                      <option value="cartao_credito">Cartão de Crédito</option>
-                      <option value="cartao_debito">Cartão de Débito</option>
-                    </select>
+                    <input value={custName} onChange={e => setCustName(e.target.value)} placeholder="Seu Nome Completo" className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border border-zinc-200 dark:border-zinc-700 focus:ring-2 ring-primary-500 transition-all text-sm" />
+                    <input value={custWhatsapp} onChange={e => setCustWhatsapp(e.target.value)} placeholder="Seu WhatsApp (com DDD)" className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border border-zinc-200 dark:border-zinc-700 focus:ring-2 ring-primary-500 transition-all text-sm" />
+                    
+                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2"><MapPin className="w-4 h-4" /> Local de Entrega</p>
+                      
+                      <div className="bg-zinc-50 dark:bg-zinc-800/50 p-1 rounded-xl flex items-center mb-3">
+                        <input value={custAddress} onChange={e => setCustAddress(e.target.value)} placeholder="Digite o endereço completo" className="h-10 bg-transparent flex-1 px-3 font-bold outline-none text-sm text-zinc-900 dark:text-white" />
+                      </div>
+                      
+                      <Button variant="outline" onClick={handleDetectLocation} disabled={locating} className="w-full h-12 rounded-xl border-dashed border-2 mb-3">
+                        <Navigation className={`w-4 h-4 mr-2 ${locating ? 'animate-spin' : ''}`} /> 
+                        {locating ? 'Obtendo localização...' : 'Usar minha localização atual GPS'}
+                      </Button>
+                      
+                      <div className="rounded-xl overflow-hidden border-2 border-primary-500/20 shadow-inner">
+                        <MapPicker lat={custLat} lng={custLng} onChange={handleMapChange} />
+                      </div>
+                      <p className="text-[10px] text-zinc-400 mt-2 text-center italic">Arraste o mapa para marcar o local exato da obra/entrega.</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3">Forma de Pagamento</p>
+                      <select value={paymentMethod} onChange={(e: any) => setPaymentMethod(e.target.value)} className="w-full h-12 bg-zinc-50 dark:bg-zinc-800 rounded-xl px-4 font-bold outline-none border border-zinc-200 dark:border-zinc-700 focus:ring-2 ring-primary-500 transition-all text-sm appearance-none">
+                        <option value="pix">PIX</option>
+                        <option value="dinheiro">Dinheiro vivo</option>
+                        <option value="cartao_credito">Cartão de Crédito</option>
+                        <option value="cartao_debito">Cartão de Débito</option>
+                      </select>
+                      
+                      {paymentMethod === 'dinheiro' && (
+                         <div className="mt-3 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 animate-in fade-in slide-in-from-top-2">
+                           <p className="text-xs font-bold text-zinc-500 mb-2">Precisa de troco para quanto?</p>
+                           <input type="number" placeholder="Ex: 50" value={changeFor} onChange={e => setChangeFor(e.target.value)} className="w-full h-10 bg-white dark:bg-zinc-900 rounded-lg px-3 font-bold outline-none border border-zinc-200 dark:border-zinc-700 focus:ring-2 ring-primary-500 text-sm" />
+                         </div>
+                      )}
+                      
+                      {paymentMethod === 'pix' && config.pixKey && (
+                        <div className="mt-3 bg-primary-50 dark:bg-primary-900/10 p-4 rounded-xl border border-primary-200 dark:border-primary-900/30 animate-in fade-in slide-in-from-top-2">
+                          <p className="text-xs font-bold text-primary-600 dark:text-primary-400 mb-1">Chave PIX da Loja:</p>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-bold text-zinc-900 dark:text-white select-all bg-white dark:bg-zinc-900 px-2 py-1 rounded inline-block">{config.pixKey}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="bg-zinc-50 dark:bg-zinc-800 p-6 rounded-2xl space-y-2 border shadow-inner">
                     <div className="flex justify-between text-xs font-bold text-zinc-400 uppercase tracking-widest"><span>Frete</span><span>{formatCurrency(deliveryFee)}</span></div>
@@ -435,6 +475,24 @@ export default function ClientHome() {
         </div>
       )}
 
+      {showInstallBanner && (
+        <div className="fixed bottom-32 left-4 right-4 bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-2xl border border-zinc-100 dark:border-zinc-800 z-[400] flex items-center justify-between animate-in slide-in-from-bottom-10 md:hidden">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg" style={{ backgroundColor: config.primaryColor }}>
+              <Download className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-black uppercase tracking-tight">Instalar Aplicativo</p>
+              <p className="text-[10px] text-zinc-500 font-bold">Acesse mais rápido e offline</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowInstallBanner(false)} className="px-3 py-2 text-xs font-bold text-zinc-400">Agora não</button>
+            <button onClick={handleInstallClick} className="px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-90">Instalar</button>
+          </div>
+        </div>
+      )}
+
       {/* WHATSAPP FIXED BTN */}
       <a
         href={`https://wa.me/${config.whatsapp?.replace(/\D/g, '')}`}
@@ -443,23 +501,6 @@ export default function ClientHome() {
       >
         <Phone className="w-8 h-8" />
       </a>
-      
-      {/* PWA INSTALL BANNER */}
-      {showInstallBanner && (
-        <div className="fixed bottom-6 left-4 right-4 z-[500] bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-10 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-white" style={{ backgroundColor: config.primaryColor }}>
-            <Download className="w-7 h-7" />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-black text-sm uppercase tracking-tight">Instalar App</h4>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Acesse {config.name} com um toque!</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowInstallBanner(false)} className="p-2 text-zinc-400"><X className="w-5 h-5" /></button>
-            <button onClick={handleInstallClick} className="h-10 px-6 rounded-xl text-white font-black uppercase text-xs shadow-lg active:scale-95" style={{ backgroundColor: config.primaryColor }}>Instalar</button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
