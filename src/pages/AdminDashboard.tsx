@@ -578,13 +578,30 @@ function PromotionsTab() {
 
 /* ═══════════════════════ CONFIG TAB ═══════════════════════ */
 function ConfigTab() {
-  const { config, setConfig } = useStore();
+  const { config, setConfig, uploadImage } = useStore();
   const [form, setForm] = useState({ ...config });
   const [saved, setSaved] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setForm({ ...config });
   }, [config]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setForm(f => ({ ...f, logoUrl: url }));
+    } catch (err: any) {
+      alert("Erro ao subir logotipo: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = () => {
     setConfig(form);
@@ -677,13 +694,45 @@ function ConfigTab() {
       </div>
 
       <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-6 space-y-4">
-        <h3 className="font-bold text-zinc-900 dark:text-white flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Logotipo</h3>
-        <div className="flex items-center gap-6">
-          <div className="w-24 h-24 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden border-2 border-dashed border-zinc-300 dark:border-zinc-700">
-            {form.logoUrl ? <img src={form.logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <ImageIcon className="w-8 h-8 text-zinc-400" />}
+        <h3 className="font-bold text-zinc-900 dark:text-white flex items-center gap-2"><ImageIcon className="w-5 h-5" /> Logotipo da Loja</h3>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-700">
+          <div className="w-28 h-28 rounded-2xl bg-white dark:bg-zinc-900 flex items-center justify-center overflow-hidden border-2 border-zinc-100 dark:border-zinc-800 shadow-sm shrink-0">
+            {form.logoUrl ? <img src={form.logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <ImageIcon className="w-10 h-10 text-zinc-300" />}
           </div>
-          <div className="space-y-2 flex-1">
-            <InputField label="URL do Logo" value={form.logoUrl} onChange={e => setForm(f => ({ ...f, logoUrl: e.target.value }))} placeholder="Cole a URL do logo aqui" />
+          
+          <div className="flex-1 space-y-4 w-full">
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Opção 1: Upload de Arquivo</span>
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={isUploading}
+                className="h-12 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-center gap-2 text-zinc-700 dark:text-zinc-300 font-bold text-sm transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800/50 shadow-sm disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Upload className="w-5 h-5" />
+                )}
+                {isUploading ? "Enviando Logo..." : "Escolher do Aparelho/PC"}
+              </button>
+              <input type="file" ref={logoInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Opção 2: Link da Web</span>
+              <div className="relative">
+                <input
+                  type="url"
+                  value={form.logoUrl || ''}
+                  onChange={e => setForm(f => ({ ...f, logoUrl: e.target.value }))}
+                  placeholder="Cole a URL do logotipo aqui..."
+                  className="w-full h-11 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-4 pr-10 outline-none focus:ring-2 ring-primary-500 text-sm text-zinc-900 dark:text-white"
+                />
+                <LinkIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
