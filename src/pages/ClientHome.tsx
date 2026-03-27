@@ -443,6 +443,23 @@ export default function ClientHome() {
       >
         <Phone className="w-8 h-8" />
       </a>
+      
+      {/* PWA INSTALL BANNER */}
+      {showInstallBanner && (
+        <div className="fixed bottom-6 left-4 right-4 z-[500] bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200 dark:border-zinc-800 shadow-2xl animate-in slide-in-from-bottom-10 flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-white" style={{ backgroundColor: config.primaryColor }}>
+            <Download className="w-7 h-7" />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-black text-sm uppercase tracking-tight">Instalar App</h4>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Acesse {config.name} com um toque!</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowInstallBanner(false)} className="p-2 text-zinc-400"><X className="w-5 h-5" /></button>
+            <button onClick={handleInstallClick} className="h-10 px-6 rounded-xl text-white font-black uppercase text-xs shadow-lg active:scale-95" style={{ backgroundColor: config.primaryColor }}>Instalar</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -24,7 +24,7 @@ export default defineConfig({
 
       manifest: {
         name: 'Demonstrativo',
-        short_name: 'M X',
+        short_name: 'Demonstrativo',
         description: 'Painel do Cliente - Demonstrativo',
 
         theme_color: '#ffffff',
