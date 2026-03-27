@@ -168,11 +168,13 @@ export default function AdminDashboard() {
 
 /* ═══════════════════════ PRODUCTS TAB ═══════════════════════ */
 function ProductsTab() {
-  const { products, categories, config, addProduct, updateProduct, deleteProduct } = useStore();
+  const { products, categories, config, addProduct, updateProduct, deleteProduct, uploadImage } = useStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', category: '', imageUrl: '' });
   const [imagePreviewError, setImagePreviewError] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [activeCategory, setActiveCategory] = useState('Todas');
 
@@ -205,6 +207,22 @@ function ProductsTab() {
     });
     setImagePreviewError(false);
     setModalOpen(true);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const url = await uploadImage(file);
+      setForm(f => ({ ...f, imageUrl: url }));
+      setImagePreviewError(false);
+    } catch (err: any) {
+      alert("Erro ao fazer upload: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSave = () => {
@@ -318,31 +336,62 @@ function ProductsTab() {
             </select>
           </div>
 
-          {/* IMAGE URL INPUT */}
+          {/* IMAGE URL & UPLOAD */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
-              <LinkIcon className="w-3.5 h-3.5" /> Foto do Produto (URL)
+              <ImageIcon className="w-3.5 h-3.5" /> Foto do Produto
             </label>
-            <div className="relative">
-              <input
-                type="url"
-                value={form.imageUrl}
-                onChange={e => { setForm(f => ({ ...f, imageUrl: e.target.value })); setImagePreviewError(false); }}
-                placeholder="Cole a URL da imagem do produto aqui..."
-                className="w-full h-12 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-4 pr-12 outline-none focus:ring-2 ring-primary-500 transition-all text-zinc-900 dark:text-white text-sm"
-              />
-              {form.imageUrl && (
+            
+            <div className="grid grid-cols-1 gap-2">
+              {/* Opção via Upload */}
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setForm(f => ({ ...f, imageUrl: '' })); setImagePreviewError(false); }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-red-500 transition-colors"
-                  title="Limpar URL"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex-1 h-12 bg-primary-50 dark:bg-primary-900/10 border-2 border-dashed border-primary-200 dark:border-primary-800 rounded-xl flex items-center justify-center gap-2 text-primary-600 dark:text-primary-400 font-bold text-sm transition-all hover:bg-primary-100 dark:hover:bg-primary-900/20 disabled:opacity-50"
                 >
-                  <X className="w-4 h-4" />
+                  {isUploading ? (
+                    <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Upload className="w-5 h-5" />
+                  )}
+                  {isUploading ? "Enviando..." : "Subir do Celular/PC"}
                 </button>
-              )}
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+              </div>
+
+              {/* Divisor */}
+              <div className="flex items-center gap-2 py-1">
+                <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800"></div>
+                <span className="text-[10px] font-black uppercase text-zinc-400">ou use URL</span>
+                <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800"></div>
+              </div>
+
+              {/* Opção via URL */}
+              <div className="relative">
+                <input
+                  type="url"
+                  value={form.imageUrl}
+                  onChange={e => { setForm(f => ({ ...f, imageUrl: e.target.value })); setImagePreviewError(false); }}
+                  placeholder="Cole o link da imagem aqui..."
+                  className="w-full h-12 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl pl-10 pr-12 outline-none focus:ring-2 ring-primary-500 transition-all text-zinc-900 dark:text-white text-sm"
+                />
+                <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                {form.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => { setForm(f => ({ ...f, imageUrl: '' })); setImagePreviewError(false); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-red-500 transition-colors"
+                    title="Limpar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="text-[10px] text-zinc-400">Cole o link direto da imagem (ex: https://site.com/foto.jpg)</p>
+            
+            <p className="text-[10px] text-zinc-400">Dica: Fotos quadradas ficam melhores no app.</p>
 
             {/* Image Preview */}
             {form.imageUrl && !imagePreviewError && (
